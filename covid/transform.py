@@ -87,6 +87,8 @@ CDC_CRITERIA_2_COMBINED_FIELD = "CDC Criteria 2 (Combined)"
 # Criteria Category 3 Fields.
 MAX_ICU_BED_OCCUPATION_7_DAYS = "max_icu_bed_occupation_7_days"
 MAX_INPATIENT_BED_OCCUPATION_7_DAYS = "max_inpatient_bed_occupation_7_days"
+ICU_PERCENT_OCCUPIED = "icu_percent_occupied"
+INPATIENT_PERCENT_OCCUPIED = "inpatient_percent_occupied"
 BASE_ICU_BEDS_FIELD = "% of ICU Beds Occupied"
 BASE_INPATIENT_BEDS_FIELD = "% of Inpatient Beds Occupied"
 CRITERIA_3A_NUM_CONSECUTIVE_DAYS = 7
@@ -185,6 +187,8 @@ CRITERIA_3_SUMMARY_COLUMNS = [
     MAX_INPATIENT_BED_OCCUPATION_7_DAYS,
     CDC_CRITERIA_3A_HOSPITAL_BED_UTILIZATION_FIELD,
     CDC_CRITERIA_3_COMBINED_FIELD,
+    INPATIENT_PERCENT_OCCUPIED,
+    ICU_PERCENT_OCCUPIED,
 ]
 
 
@@ -585,10 +589,10 @@ def transform_cdc_data(cdc_current_df, cdc_historical_df):
     cdc_df = cdc_df.loc[~cdc_df.index.duplicated(), :]
 
     # Convert data from str to float
-    cdc_df["inpatient_bed_percent_occupied"] = cdc_df[
-        "inpatient_bed_percent_occupied"
-    ].astype(float)
-    cdc_df["icu_percent_occupied"] = cdc_df["icu_percent_occupied"].astype(float)
+    cdc_df[INPATIENT_PERCENT_OCCUPIED] = cdc_df[INPATIENT_PERCENT_OCCUPIED].astype(
+        float
+    )
+    cdc_df[ICU_PERCENT_OCCUPIED] = cdc_df[ICU_PERCENT_OCCUPIED].astype(float)
 
     # Calculate 3A: ICU and in-patient beds must have < 80% utilization for 7 consecutive days
     # Hack because GROUPBY ROLLING doesn't work for datetimeindex. Thanks Pandas.
@@ -597,12 +601,12 @@ def transform_cdc_data(cdc_current_df, cdc_historical_df):
     for state in states:
         state_df = cdc_df.xs(state, axis=0, level=STATE_FIELD)
         state_df[MAX_INPATIENT_BED_OCCUPATION_7_DAYS] = (
-            state_df["inpatient_bed_percent_occupied"]
+            state_df[INPATIENT_PERCENT_OCCUPIED]
             .rolling(f"{CRITERIA_3A_NUM_CONSECUTIVE_DAYS}D")
             .max()
         )
         state_df[MAX_ICU_BED_OCCUPATION_7_DAYS] = (
-            state_df["icu_percent_occupied"]
+            state_df[ICU_PERCENT_OCCUPIED]
             .rolling(f"{CRITERIA_3A_NUM_CONSECUTIVE_DAYS}D")
             .max()
         )
