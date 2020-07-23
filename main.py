@@ -6,7 +6,8 @@ import pandas as pd
 
 from covid.constants import PATH_TO_SERVICE_ACCOUNT_KEY
 from covid.extract import extract_cdc_ili_data
-from covid.extract import extract_covidtracking_historical_data
+from covid.extract import extract_covidtracking_historical_data, extract_covidtracking_current_data
+from covid.extract import extract_rt_live_data
 from covid.load import get_sheets_client
 from covid.load import post_dataframe_to_google_sheets
 from covid.load_utils import sleep_and_log
@@ -18,7 +19,9 @@ from covid.transform import CRITERIA_COMBINED_SUMMARY_COLUMNS
 from covid.transform import STATE_FIELD
 from covid.transform import STATE_SUMMARY_COLUMNS
 from covid.transform import transform_cdc_ili_data
-from covid.transform import transform_covidtracking_data
+from covid.transform import transform_covidtracking_data_to_cdc, transform_covidtracking_data_to_states_historical, \
+    transform_covidtracking_data_to_states_current
+from covid.transform import transform_rtlive_data
 from covid.transform_utils import calculate_state_summary
 
 # Define the names of the tabs to upload to.
@@ -36,6 +39,11 @@ CDC_CRITERIA_6_GOOGLE_WORKBOOK_KEY = "1xhKoRK5GZBqor3Cn16K89ZtZGN9Iq93ShnsXCIqct
 CDC_CRITERIA_SUMMARY_GOOGLE_WORKBOOK_KEY = (
     "1aHvKgCfyIlWYHgBSE26cPd5jE0yZYgctcxniyZfWpu8"
 )
+
+HOMEPAGE_SHEET_GOOGLE_WORKBOOK_KEY = "1CKcRpPqYzWo-B_xEhrSyrFDplMxhf9PaGTlpgh91jeQ"
+HOME_SHEET_COVIDTRACKING_STATE_HISTORICAL_TAB_NAME = 'covidtracking.com - states - history - daily - csv'
+HOME_SHEET_COVIDTRACKING_STATE_CURRENT_TAB_NAME = 'covidtracking.com - states - current - csv'
+HOME_SHEET_RT_LIVE_TAB_NAME = 'rt.live - csv'
 
 # Note: if you'd like to run the full pipeline, you'll need to generate a service account keyfile for an account
 # that has been given write access to the Google Sheet.
@@ -86,20 +94,28 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
     #     credentials=credentials,
     # )
 
-    covidtracking_df = extract_covidtracking_historical_data()
+    historical_covidtracking_df = extract_covidtracking_historical_data()
+    current_covidtracking_df = extract_covidtracking_current_data()
     cdc_ili_df = extract_cdc_ili_data()
+    rtlive_df = extract_rt_live_data()
 
     transformed_cdc_ili_df = transform_cdc_ili_data(ili_df=cdc_ili_df)
 
-    transformed_covidtracking_df = transform_covidtracking_data(
-        covidtracking_df=covidtracking_df
+    transformed_covidtracking_cdc_df = transform_covidtracking_data_to_cdc(
+        covidtracking_df=historical_covidtracking_df
     )
+    transformed_covidtracking_historical_df = transform_covidtracking_data_to_states_historical(
+        covidtracking_df=historical_covidtracking_df)
+    transformed_covidtracking_current_df = transform_covidtracking_data_to_states_current(
+        covidtracking_df=current_covidtracking_df)
+
+    transformed_rtlive_df = transform_rtlive_data(rtlive_df=rtlive_df)
 
     # Upload summary for all states.
     if post_to_google_sheets:
         post_dataframe_to_google_sheets(
             df=calculate_state_summary(
-                transformed_df=transformed_covidtracking_df,
+                transformed_df=transformed_covidtracking_cdc_df,
                 columns=STATE_SUMMARY_COLUMNS,
             ),
             workbook_key=CDC_GUIDANCE_GOOGLE_WORKBOOK_KEY,
@@ -112,7 +128,7 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
 
     # Upload Criteria 1 workbook for all states.
     criteria_1_summary_df = calculate_state_summary(
-        transformed_df=transformed_covidtracking_df, columns=CRITERIA_1_SUMMARY_COLUMNS
+        transformed_df=transformed_covidtracking_cdc_df, columns=CRITERIA_1_SUMMARY_COLUMNS
     )
 
     if post_to_google_sheets:
@@ -127,7 +143,7 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
 
     # Upload Criteria 2 workbook for all states.
     criteria_2_summary_df = calculate_state_summary(
-        transformed_df=transformed_covidtracking_df, columns=CRITERIA_2_SUMMARY_COLUMNS
+        transformed_df=transformed_covidtracking_cdc_df, columns=CRITERIA_2_SUMMARY_COLUMNS
     )
     if post_to_google_sheets:
         post_dataframe_to_google_sheets(
@@ -167,7 +183,7 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
 
     # Upload state summary tab for Criteria 6.
     criteria_6_summary_df = calculate_state_summary(
-        transformed_df=transformed_covidtracking_df, columns=CRITERIA_6_SUMMARY_COLUMNS
+        transformed_df=transformed_covidtracking_cdc_df, columns=CRITERIA_6_SUMMARY_COLUMNS
     )
     if post_to_google_sheets:
         post_dataframe_to_google_sheets(
@@ -208,9 +224,37 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
 
         # Upload data for all states.
         post_dataframe_to_google_sheets(
-            df=transformed_covidtracking_df,
+            df=transformed_covidtracking_cdc_df,
             workbook_key=CDC_GUIDANCE_GOOGLE_WORKBOOK_KEY,
             tab_name=ALL_STATE_DATA_TAB_NAME,
+            credentials=credentials,
+        )
+
+    # Upload transformed covidtracking.com historical + current data, rt.live data to respective tabs of sheet
+    #  with data for home page.
+    if post_to_google_sheets:
+        post_dataframe_to_google_sheets(
+            df=transformed_covidtracking_historical_df,
+            workbook_key=HOMEPAGE_SHEET_GOOGLE_WORKBOOK_KEY,
+            tab_name=HOME_SHEET_COVIDTRACKING_STATE_HISTORICAL_TAB_NAME,
+            credentials=credentials,
+        )
+
+        sleep_and_log()
+
+        post_dataframe_to_google_sheets(
+            df=transformed_covidtracking_current_df,
+            workbook_key=HOMEPAGE_SHEET_GOOGLE_WORKBOOK_KEY,
+            tab_name=HOME_SHEET_COVIDTRACKING_STATE_CURRENT_TAB_NAME,
+            credentials=credentials
+        )
+
+        sleep_and_log()
+
+        post_dataframe_to_google_sheets(
+            df=transformed_rtlive_df,
+            workbook_key=HOMEPAGE_SHEET_GOOGLE_WORKBOOK_KEY,
+            tab_name=HOME_SHEET_RT_LIVE_TAB_NAME,
             credentials=credentials,
         )
 

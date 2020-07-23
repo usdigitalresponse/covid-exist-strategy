@@ -202,3 +202,10 @@ def extract_cdc_beds_historical_data(credentials):
     cdc_historical_df = cdc_historical_df.set_index(STATE_FIELD)
 
     return cdc_historical_df
+
+
+def extract_rt_live_data():
+    rt_live_url = "https://d14wlfuexuxgcm.cloudfront.net/covid/rt.csv"
+    rt_live_df = pd.read_csv(rt_live_url)
+
+    return rt_live_df

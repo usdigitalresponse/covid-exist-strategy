@@ -435,7 +435,7 @@ CRITERIA_COMBINED_SUMMARY_COLUMNS = [
 ]
 
 
-def transform_covidtracking_data(covidtracking_df):
+def transform_covidtracking_data_to_cdc(covidtracking_df):
     """Transforms data from https://covidtracking.com/ and calculates CDC Criteria 1 (A, B, C, D) and 2 (A, B, C, D)."""
     # Rename state field into column called "State" instead of "state".
     covidtracking_df = covidtracking_df.rename(
@@ -944,6 +944,20 @@ def transform_covidtracking_data(covidtracking_df):
     return covidtracking_df
 
 
+def transform_covidtracking_data_to_states_historical(covidtracking_df):
+    """Transforms data from https://covidtracking.com/ to format for homepage sheet by adding key column"""
+    covidtracking_historical_df = covidtracking_df.copy()
+    # key is the concatenation of numerical date with state name
+    covidtracking_historical_df.insert(0, 'key', covidtracking_historical_df.apply(
+        lambda row: str(row['date']) + str(row['state']), axis=1))
+    return covidtracking_historical_df
+
+
+def transform_covidtracking_data_to_states_current(covidtracking_df):
+    """Transforms data from https://covidtracking.com/ to format for homepage sheet by dropping date column"""
+    return covidtracking_df.drop('date', axis=1)
+
+
 def transform_cdc_ili_data(ili_df):
     """Transforms data from https://gis.cdc.gov/grasp/fluview/fluportaldashboard.html and calculates CDC Criteria 5
     (A, B, C).
@@ -1228,3 +1242,12 @@ def indication_of_rebound(series_):
             indicator = "Rebound"
 
     return indicator
+
+
+def transform_rtlive_data(rtlive_df):
+    """Transforms data from rt.live to format for homepage sheet by adding index column"""
+    transformed_rtlive_df = rtlive_df.copy()
+    # key is the numerical date concatenated with region name
+    transformed_rtlive_df.insert(0, 'key', transformed_rtlive_df.apply(
+        lambda row: str(row['date']).replace('-', '') + str(row['region']), axis=1))
+    return transformed_rtlive_df
