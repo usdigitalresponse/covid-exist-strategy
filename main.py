@@ -16,13 +16,11 @@ from covid.transform import CRITERIA_5_SUMMARY_COLUMNS
 from covid.transform import CRITERIA_6_SUMMARY_COLUMNS
 from covid.transform import CRITERIA_COMBINED_SUMMARY_COLUMNS
 from covid.transform import STATE_FIELD
-from covid.transform import STATE_SUMMARY_COLUMNS
 from covid.transform import transform_cdc_ili_data
 from covid.transform import transform_covidtracking_data
 from covid.transform_utils import calculate_state_summary
 
 # Define the names of the tabs to upload to.
-CDC_GUIDANCE_GOOGLE_WORKBOOK_KEY = "1s534JoVjsetLDUxzkww3yQSnRj9H-8QLMKPUrq7RAuc"
 FOR_WEBSITE_TAB_NAME = "For Website"
 ALL_STATE_DATA_TAB_NAME = "All State Data"
 WORK_IN_PROGRESS_NY_ONLY_TAB_NAME = f"{ALL_STATE_DATA_TAB_NAME} (NY Only)"
@@ -94,21 +92,6 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
     transformed_covidtracking_df = transform_covidtracking_data(
         covidtracking_df=covidtracking_df
     )
-
-    # Upload summary for all states.
-    if post_to_google_sheets:
-        post_dataframe_to_google_sheets(
-            df=calculate_state_summary(
-                transformed_df=transformed_covidtracking_df,
-                columns=STATE_SUMMARY_COLUMNS,
-            ),
-            workbook_key=CDC_GUIDANCE_GOOGLE_WORKBOOK_KEY,
-            tab_name=STATE_SUMMARY_TAB_NAME,
-            credentials=credentials,
-        )
-
-        # It appears we're uploading so much data we're hitting a quota of some kind. So we sleep after each upload.
-        sleep_and_log()
 
     # Upload Criteria 1 workbook for all states.
     criteria_1_summary_df = calculate_state_summary(
@@ -205,14 +188,6 @@ def extract_transform_and_load_covid_data(post_to_google_sheets=True):
         )
 
         sleep_and_log()
-
-        # Upload data for all states.
-        post_dataframe_to_google_sheets(
-            df=transformed_covidtracking_df,
-            workbook_key=CDC_GUIDANCE_GOOGLE_WORKBOOK_KEY,
-            tab_name=ALL_STATE_DATA_TAB_NAME,
-            credentials=credentials,
-        )
 
 
 if __name__ == "__main__":
