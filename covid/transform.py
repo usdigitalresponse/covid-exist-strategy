@@ -87,10 +87,10 @@ CDC_CRITERIA_2_COMBINED_FIELD = "CDC Criteria 2 (Combined)"
 # Criteria Category 3 Fields.
 MAX_ICU_BED_OCCUPATION_7_DAYS = "max_icu_bed_occupation_7_days"
 MAX_INPATIENT_BED_OCCUPATION_7_DAYS = "max_inpatient_bed_occupation_7_days"
-ICU_PERCENT_OCCUPIED = "pct_icu_bed_utilization"
-INPATIENT_PERCENT_OCCUPIED = "pct_inpatient_bed_utilization"
-# BASE_ICU_BEDS_FIELD = "% of ICU Beds Occupied"
-# BASE_INPATIENT_BEDS_FIELD = "% of Inpatient Beds Occupied"
+ICU_PERCENT_OCCUPIED = "icu_percent_occupied"
+INPATIENT_PERCENT_OCCUPIED = "inpatient_bed_percent_occupied"
+BASE_ICU_BEDS_FIELD = "pct_icu_bed_utilization"
+BASE_INPATIENT_BEDS_FIELD = "pct_inpatient_bed_utilization"
 CRITERIA_3A_NUM_CONSECUTIVE_DAYS = 7
 CDC_CRITERIA_3A_HOSPITAL_BED_UTILIZATION_FIELD = "CDC Criteria 3A"
 CDC_CRITERIA_3_COMBINED_FIELD = "CDC Criteria 3 (Combined)"
@@ -1098,6 +1098,10 @@ def transform_hhs_beds_data(hhs_beds_current_df, hhs_beds_historical_df='TODO'):
     hhs_df[DATE_SOURCE_FIELD] = pd.to_datetime(hhs_df[DATE_SOURCE_FIELD])
     hhs_df = hhs_df.set_index(DATE_SOURCE_FIELD, append=True)
     hhs_df.index.names = [STATE_FIELD, DATE_SOURCE_FIELD]
+    hhs_df.rename(
+        {BASE_ICU_BEDS_FIELD: ICU_PERCENT_OCCUPIED, BASE_INPATIENT_BEDS_FIELD:INPATIENT_PERCENT_OCCUPIED},
+        axis=1,
+        inplace=True)
 
     # Drop duplicate dates
     hhs_df = hhs_df.loc[~hhs_df.index.duplicated(), :]
