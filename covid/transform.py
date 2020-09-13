@@ -9,6 +9,8 @@ from covid.extract import NEW_CASES_NEGATIVE_SOURCE_FIELD
 from covid.extract import NEW_CASES_POSITIVE_SOURCE_FIELD
 from covid.extract import STATE_SOURCE_FIELD
 from covid.extract import TOTAL_CASES_SOURCE_FIELD
+from covid.extract import ICU_BEDS_PERCENT_SOURCE_FIELD
+from covid.extract import INPATIENT_BEDS_PERCENT_SOURCE_FIELD
 from covid.transform_utils import calculate_consecutive_boolean_series
 from covid.transform_utils import calculate_consecutive_positive_or_negative_values
 from covid.transform_utils import calculate_max_run_in_window
@@ -89,8 +91,6 @@ MAX_ICU_BED_OCCUPATION_7_DAYS = "max_icu_bed_occupation_7_days"
 MAX_INPATIENT_BED_OCCUPATION_7_DAYS = "max_inpatient_bed_occupation_7_days"
 ICU_PERCENT_OCCUPIED = "icu_percent_occupied"
 INPATIENT_PERCENT_OCCUPIED = "inpatient_bed_percent_occupied"
-BASE_ICU_BEDS_FIELD = "pct_icu_bed_utilization"
-BASE_INPATIENT_BEDS_FIELD = "pct_inpatient_bed_utilization"
 CRITERIA_3A_NUM_CONSECUTIVE_DAYS = 7
 CDC_CRITERIA_3A_HOSPITAL_BED_UTILIZATION_FIELD = "CDC Criteria 3A"
 CDC_CRITERIA_3_COMBINED_FIELD = "CDC Criteria 3 (Combined)"
@@ -1099,7 +1099,8 @@ def transform_hhs_beds_data(hhs_beds_current_df, hhs_beds_historical_df='TODO'):
     hhs_df = hhs_df.set_index(DATE_SOURCE_FIELD, append=True)
     hhs_df.index.names = [STATE_FIELD, DATE_SOURCE_FIELD]
     hhs_df.rename(
-        {BASE_ICU_BEDS_FIELD: ICU_PERCENT_OCCUPIED, BASE_INPATIENT_BEDS_FIELD:INPATIENT_PERCENT_OCCUPIED},
+        {ICU_BEDS_PERCENT_SOURCE_FIELD: ICU_PERCENT_OCCUPIED,
+         INPATIENT_BEDS_PERCENT_SOURCE_FIELD: INPATIENT_PERCENT_OCCUPIED},
         axis=1,
         inplace=True)
 

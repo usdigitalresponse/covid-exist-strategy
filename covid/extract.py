@@ -23,6 +23,8 @@ TOTAL_CASES_SOURCE_FIELD = "positive"
 NEW_CASES_NEGATIVE_SOURCE_FIELD = "negativeIncrease"
 NEW_CASES_POSITIVE_SOURCE_FIELD = "positiveIncrease"
 LAST_UPDATED_SOURCE_FIELD = "dateModified"
+ICU_BEDS_PERCENT_SOURCE_FIELD = "pct_icu_bed_utilization"
+INPATIENT_BEDS_PERCENT_SOURCE_FIELD = "pct_inpatient_bed_utilization"
 
 # For bed utilization data
 CATEGORY_3_DATA_GOOGLE_SHEET_KEY = "1-BSd5eFbNsypygMkhuGX1OWoUsF2u4chpsu6aC4cgVo"
