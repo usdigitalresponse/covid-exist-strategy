@@ -6,3 +6,4 @@ pandas==1.0.3
 requests==2.23.0
 rpy2==3.3.3
 scipy==1.4.1
+rsa>=4.7 # not directly required, pinned by Snyk to avoid a vulnerability
