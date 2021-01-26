@@ -6,7 +6,6 @@ import pandas as pd
 import requests
 from df2gspread import gspread2df
 
-import covid.extract_config.cdc_govcloud as cgc
 from covid.extract_utils import unzip_string
 
 
@@ -24,6 +23,8 @@ TOTAL_CASES_SOURCE_FIELD = "positive"
 NEW_CASES_NEGATIVE_SOURCE_FIELD = "negativeIncrease"
 NEW_CASES_POSITIVE_SOURCE_FIELD = "positiveIncrease"
 LAST_UPDATED_SOURCE_FIELD = "dateModified"
+ICU_BEDS_PERCENT_SOURCE_FIELD = "pct_icu_bed_utilization"
+INPATIENT_BEDS_PERCENT_SOURCE_FIELD = "pct_inpatient_bed_utilization"
 
 # For bed utilization data
 CATEGORY_3_DATA_GOOGLE_SHEET_KEY = "1-BSd5eFbNsypygMkhuGX1OWoUsF2u4chpsu6aC4cgVo"
@@ -66,98 +67,6 @@ def get_state_abbreviations_to_names():
     return abbreviations
 
 
-def power_bi_extractor(response):
-    data = json.loads(response.text)
-    timestamp = extract_cdc_data_date()
-    value_list = data["results"][0]["result"]["data"]["dsr"]["DS"][0]["PH"][1]["DM1"]
-    for vl in value_list:
-        data_row = vl["C"]
-        if len(data_row) == 3:
-            yield vl["C"] + [timestamp]
-        else:
-            logger.warning(f"Unexpected power BI response value: {data_row}")
-
-
-def extract_cdc_data_date():
-    # Get data date as seen on the website
-    response = requests.post(
-        cgc.URL,
-        headers={**cgc.BASE_HEADERS, **cgc.DATA_DATE_HEADERS},
-        data=open("./covid/extract_config/data_date.json"),
-    )
-
-    data = json.loads(response.text)
-    return data["results"][0]["result"]["data"]["dsr"]["DS"][0]["PH"][0]["DM0"][0]["M0"]
-
-
-def extract_cdc_inpatient_beds():
-    # State Representative Estimates for Percentage of Inpatient Beds Occupied (All Patients)
-    response = requests.post(
-        cgc.URL,
-        headers={**cgc.BASE_HEADERS, **cgc.INPATIENT_BED_HEADERS},
-        data=open("./covid/extract_config/inpatient_bed_query.json"),
-    )
-
-    df = pd.DataFrame(
-        power_bi_extractor(response),
-        columns=[
-            STATE_FIELD,
-            "inpatient_bed_percent_occupied",
-            "inpatient_beds_occupied",
-            DATE_SOURCE_FIELD,
-        ],
-    )
-
-    df = df.set_index(STATE_FIELD)
-
-    return df
-
-
-def extract_cdc_icu_beds():
-    # State Representative Estimates for Percentage of ICU Beds Occupied (All Patients)
-    response = requests.post(
-        cgc.URL,
-        headers={**cgc.BASE_HEADERS, **cgc.ICU_BED_HEADERS},
-        data=open("./covid/extract_config/icu_bed_query.json"),
-    )
-
-    df = pd.DataFrame(
-        power_bi_extractor(response),
-        columns=[
-            STATE_FIELD,
-            "icu_percent_occupied",
-            "icu_beds_occupied",
-            DATE_SOURCE_FIELD,
-        ],
-    )
-
-    df = df.set_index(STATE_FIELD)
-
-    return df
-
-
-def extract_cdc_facilities_reporting():
-    response = requests.post(
-        cgc.URL,
-        headers={**cgc.BASE_HEADERS, **cgc.FACILITIES_REPORTING_HEADERS},
-        data=open("./covid/extract_config/facilities_reporting_query.json"),
-    )
-
-    df = pd.DataFrame(
-        power_bi_extractor(response),
-        columns=[
-            STATE_FIELD,
-            "facilities_percent_reporting",
-            "facilities_reporting",
-            DATE_SOURCE_FIELD,
-        ],
-    )
-
-    df = df.set_index(STATE_FIELD)
-
-    return df
-
-
 def extract_cdc_ili_data():
     current_url = "https://gis.cdc.gov/grasp/flu2/PostPhase02DataDownload"
     payload = {
@@ -183,22 +92,24 @@ def extract_cdc_ili_data():
     return df
 
 
-def extract_cdc_beds_current_data():
-    inpatient_bed_df = extract_cdc_inpatient_beds()
-    icu_bed_df = extract_cdc_icu_beds()
-    hospitals_reporting_df = extract_cdc_facilities_reporting()
-    cdc_df = pd.concat([inpatient_bed_df, icu_bed_df, hospitals_reporting_df], axis=1)
-    cdc_df = cdc_df.loc[:, ~cdc_df.columns.duplicated()]
-    return cdc_df
+def extract_hhs_icu_data():
+    hhs_pro_pub_url = "https://opendata.arcgis.com/datasets/f527cf1835294eb280a4e5ee3c5c209c_0.geojson"
+    geo_j = requests.get(hhs_pro_pub_url).json()
+    df = pd.DataFrame([feat['properties'] for feat in geo_j['features']])
+    df.drop('OBJECTID', axis=1, inplace=True)
+    df.rename({'state_name': STATE_FIELD, 'last_updated': DATE_SOURCE_FIELD}, axis=1, inplace=True)
+    df[DATE_SOURCE_FIELD] = df[DATE_SOURCE_FIELD].str[:10]
+    df.set_index(STATE_FIELD, inplace=True)
+    return df
 
 
-def extract_cdc_beds_historical_data(credentials):
-    cdc_historical_df = gspread2df.download(
-        CATEGORY_3_DATA_GOOGLE_SHEET_KEY,
-        CATEGORY_3_HISTORICAL_DATA_TAB,
-        credentials=credentials,
-        col_names=True,
-    )
-    cdc_historical_df = cdc_historical_df.set_index(STATE_FIELD)
+# def extract_cdc_beds_historical_data(credentials):
+#     cdc_historical_df = gspread2df.download(
+#         CATEGORY_3_DATA_GOOGLE_SHEET_KEY,
+#         CATEGORY_3_HISTORICAL_DATA_TAB,
+#         credentials=credentials,
+#         col_names=True,
+#     )
+#     cdc_historical_df = cdc_historical_df.set_index(STATE_FIELD)
 
-    return cdc_historical_df
+#     return cdc_historical_df

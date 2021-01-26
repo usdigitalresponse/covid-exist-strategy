@@ -10,6 +10,8 @@ from covid.extract import NEW_CASES_NEGATIVE_SOURCE_FIELD
 from covid.extract import NEW_CASES_POSITIVE_SOURCE_FIELD
 from covid.extract import STATE_SOURCE_FIELD
 from covid.extract import TOTAL_CASES_SOURCE_FIELD
+from covid.extract import ICU_BEDS_PERCENT_SOURCE_FIELD
+from covid.extract import INPATIENT_BEDS_PERCENT_SOURCE_FIELD
 from covid.transform_utils import calculate_consecutive_boolean_series
 from covid.transform_utils import calculate_consecutive_positive_or_negative_values
 from covid.transform_utils import calculate_max_run_in_window
@@ -92,8 +94,6 @@ MAX_ICU_BED_OCCUPATION_7_DAYS = "max_icu_bed_occupation_7_days"
 MAX_INPATIENT_BED_OCCUPATION_7_DAYS = "max_inpatient_bed_occupation_7_days"
 ICU_PERCENT_OCCUPIED = "icu_percent_occupied"
 INPATIENT_PERCENT_OCCUPIED = "inpatient_bed_percent_occupied"
-BASE_ICU_BEDS_FIELD = "% of ICU Beds Occupied"
-BASE_INPATIENT_BEDS_FIELD = "% of Inpatient Beds Occupied"
 CRITERIA_3A_NUM_CONSECUTIVE_DAYS = 7
 CDC_CRITERIA_3A_HOSPITAL_BED_UTILIZATION_FIELD = "CDC Criteria 3A"
 CDC_CRITERIA_3_COMBINED_FIELD = "CDC Criteria 3 (Combined)"
@@ -1144,45 +1144,51 @@ def transform_cdc_ili_data(ili_df):
     return ili_df
 
 
-def transform_cdc_beds_data(cdc_beds_current_df, cdc_beds_historical_df):
-    """Transforms data from https://www.cdc.gov/nhsn/covid19/report-patient-impact.html and calculates CDC Criteria 3
+def transform_hhs_beds_data(hhs_beds_current_df, hhs_beds_historical_df='TODO'):
+    """Transforms data from TKTK and calculates CDC Criteria 3
     (A).
     """
     # Add date to index
-    cdc_df = pd.concat([cdc_beds_current_df, cdc_beds_historical_df], axis=0)
-    cdc_df[DATE_SOURCE_FIELD] = pd.to_datetime(cdc_df[DATE_SOURCE_FIELD])
-    cdc_df = cdc_df.set_index(DATE_SOURCE_FIELD, append=True)
-    cdc_df.index.names = [STATE_FIELD, DATE_SOURCE_FIELD]
+    # TODO hhs_df = pd.concat([hhs_beds_current_df, hhs_beds_historical_df], axis=0)
+    hhs_df = hhs_beds_current_df
+    hhs_df[DATE_SOURCE_FIELD] = pd.to_datetime(hhs_df[DATE_SOURCE_FIELD])
+    hhs_df = hhs_df.set_index(DATE_SOURCE_FIELD, append=True)
+    hhs_df.index.names = [STATE_FIELD, DATE_SOURCE_FIELD]
+    hhs_df.rename(
+        {ICU_BEDS_PERCENT_SOURCE_FIELD: ICU_PERCENT_OCCUPIED,
+         INPATIENT_BEDS_PERCENT_SOURCE_FIELD: INPATIENT_PERCENT_OCCUPIED},
+        axis=1,
+        inplace=True)
 
     # Drop duplicate dates
-    cdc_df = cdc_df.loc[~cdc_df.index.duplicated(), :]
+    hhs_df = hhs_df.loc[~hhs_df.index.duplicated(), :]
 
     # Drop nan-index data.
-    cdc_df = cdc_df.loc[cdc_df.index.dropna()]
+    hhs_df = hhs_df.loc[hhs_df.index.dropna()]
 
     # Replace empty data with None
-    cdc_df[ICU_PERCENT_OCCUPIED] = (
-        cdc_df[ICU_PERCENT_OCCUPIED].astype(str).replace("", None)
+    hhs_df[ICU_PERCENT_OCCUPIED] = (
+        hhs_df[ICU_PERCENT_OCCUPIED].astype(str).replace("", None)
     )
-    cdc_df[INPATIENT_PERCENT_OCCUPIED] = (
-        cdc_df[INPATIENT_PERCENT_OCCUPIED].astype(str).replace("", None)
+    hhs_df[INPATIENT_PERCENT_OCCUPIED] = (
+        hhs_df[INPATIENT_PERCENT_OCCUPIED].astype(str).replace("", None)
     )
 
     # Convert data from str to float
-    cdc_df[INPATIENT_PERCENT_OCCUPIED] = cdc_df[INPATIENT_PERCENT_OCCUPIED].astype(
+    hhs_df[INPATIENT_PERCENT_OCCUPIED] = hhs_df[INPATIENT_PERCENT_OCCUPIED].astype(
         float
     )
-    cdc_df[ICU_PERCENT_OCCUPIED] = cdc_df[ICU_PERCENT_OCCUPIED].astype(float)
+    hhs_df[ICU_PERCENT_OCCUPIED] = hhs_df[ICU_PERCENT_OCCUPIED].astype(float)
 
-    cdc_df = cdc_df.sort_index()  # ascending date and state
+    hhs_df = hhs_df.sort_index()  # ascending date and state
 
     # Calculate 3A: ICU and in-patient beds must have < 80% utilization for 7 consecutive days
     # Hack because GROUPBY ROLLING doesn't work for datetimeindex. Thanks Pandas.
-    states = cdc_df.index.get_level_values(STATE_FIELD).unique()
+    states = hhs_df.index.get_level_values(STATE_FIELD).unique()
     state_dfs = []
     for state in states:
         print(f"Transforming CDC beds data for state {state}...")
-        state_df = cdc_df.xs(state, axis=0, level=STATE_FIELD)
+        state_df = hhs_df.xs(state, axis=0, level=STATE_FIELD)
         state_df[MAX_INPATIENT_BED_OCCUPATION_7_DAYS] = (
             state_df[INPATIENT_PERCENT_OCCUPIED]
             .rolling(f"{CRITERIA_3A_NUM_CONSECUTIVE_DAYS}D")
